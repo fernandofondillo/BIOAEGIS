@@ -1,0 +1,38 @@
+AGPL-3.0 License
+
+Copyright (c) 2026 Fernando Fondillo — VIHOLABS
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+---
+
+ADDITIONAL TERMS:
+
+1. **Medical Disclaimer**: BioFish AI is a research and orientation tool,
+   NOT a medical device. It does not provide medical advice, diagnosis,
+   or treatment recommendations. Always consult a qualified healthcare
+   professional before making changes to medication or lifestyle.
+
+2. **Evidence Basis**: Biological clock calculations and intervention
+   projections are based on published scientific literature (meta-analyses,
+   RCTs, cohort studies). Results are population-level estimates, not
+   individual guarantees.
+
+3. **LLM Outputs**: When using LLM-powered agents, outputs may contain
+   inaccuracies or hallucinations despite the anti-hallucination architecture.
+   Always validate critical medical information with a professional.
+
+---
+
+For the full license text, see: https://www.gnu.org/licenses/agpl-3.0.html
