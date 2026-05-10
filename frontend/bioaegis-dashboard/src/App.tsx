@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { AgentOutput, SimResult, CustomParam, CustomInt } from './types';
+import type { CustomParam as CP, CustomInt as CI } from './types';
 
 const API = 'http://localhost:8000';
 

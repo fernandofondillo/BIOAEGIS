@@ -18,16 +18,6 @@ export interface Signal {
   emitted_by?: string;
 }
 
-export interface EnsembleSummary {
-  ensemble_biological_age: number;
-  ensemble_pace: number;
-  age_acceleration_years: number;
-  top_risks: string[];
-  top_signals: string[];
-  trajectory: string;
-  confidence: number;
-}
-
 export interface SimResult {
   simulation_id?: number;
   tick?: number;
@@ -40,8 +30,6 @@ export interface SimResult {
   orchestrator_summary: string;
   moderator_trajectory?: string;
   moderator_concerns?: string[];
-  ensemble_summary?: EnsembleSummary;
-  before_after?: Record<string, { before: number; after: number }>;
   intervention_name?: string;
 }
 
