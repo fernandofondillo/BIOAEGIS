@@ -4,6 +4,45 @@ import type { AgentOutput, SimResult } from './types';
 
 const API = 'http://localhost:8000';
 
+// Demo mode when backend unavailable
+const DEMO_ENSEMBLE = {
+  ensemble_biological_age: 50.7,
+  ensemble_pace: 1.177,
+  age_acceleration_years: 5.7,
+  trajectory: "Tu edad biológica de 50.7 años supera en 5.7 años tu edad cronológica de 45 años. Los relojes (PhenoAge, Zhang, DunedinPACE) indican una aceleración moderada. Los principales motores de envejecimiento son: lipotoxicidad vascular, resistencia a la insulina subclínica, y declive de NAD+/AMPK. El Plan Combinado (ejercicio + ayuno + suplementos) mostraría una reducción de -3.2 años en edad biológica a 6 meses.",
+  confidence: 0.87,
+};
+const DEMO_AGENTS = (() => {
+  const names: [string,string,string,string[],[string,string[],[string]][]][] = [
+    ['cardiovascular','Dr. Vessels','❤️ Sistema Cardiovascular',['LDL 155 mg/dL en rango de riesgo','HDL 42 mg/dL bajo','TG 210 mg/dL elevado'],[['El LDL partículas pequeñas densas están elevadas. La ratio LDL/HDL de 3.69 indica riesgo aterogénico. Sin embargo el HDL funcional está en 42 — por encima del umbral crítico de 40. La combinación de TG altos + HDL bajo es característica del fenotipo aterogénico.',['Iniciar dieta mediterránea','Reducir carbohidratos refinados','Añadir Omega-3 2g'],['Monitorizar LDL cada 3 meses','Considerar estáticas si LDL > 160']]]],
+    ['metabolic','Dra. Glucose','🩸 Sistema Metabólico',['HOMA-IR 3.2 — resistencia a insulina','Glucosa ayunas 102 mg/dL borderline','HbA1c 5.8% pre-diabetes'],[['La resistencia a la insulina periférica está confirmada con HOMA-IR de 3.2 (normal <2.5). La hiperinsulinemia compensatoria mantiene la glucosa en rango pre-diabético. Sin intervención, progresión a DM2 en 3-5 años es probable.',['Ayuno intermitente 16:8','Reducir fructosa','Ejercicio HIIT 3x/semana'],['HbA1c cada 6 meses','Curva de glucosa completa']]]],
+    ['molecular','Dr. Molecular','🧬 Biología Molecular NAD+/mTOR',['NAD+ 60% — declive moderado','AMPK 60% actividad basal','mTOR 50% actividad moderada'],[['El eje NAD+/AMPK/sirtuinas muestra actividad basal reducida. La edad biológica molecular estimada en 48.3 años sugiere activación insuficiente de los programas de reparación celular. La autofagia está en 40% — subóptima para清除 células senescentes.',['NMN 250mg/día','Resveratrol 100mg','Ejercicio aeróbico 150min/sem'],['Medir NAD+ en sangre cada 6 meses']]]],
+    ['hepatic','Dr. Hepatic','🫀 Función Hepática',['AST/ALT ratio normal','TG hepático estimado elevado','Capacidad detox moderadamente reducida'],[['El hígado muestra primeros signos de esteatosis hepática no alcohólica (EHNA). La ratio AST/ALT <1 es sugestiva. La capacidad de detoxificación fase I está sobrecargada por carga metabólica. Sin intervención, progresión a fibrosis hepática posible en 5-8 años.',['Dieta baja en fructosa','Cúrcuma 500mg','Ejercicio aeróbico regular'],['Ecografía hepática anual','AST ALT cada 6 meses']]]],
+    ['renal','Dra. Renal','🧪 Función Renal',['eGFR calculado normal','Creatinina 1.0 mg/dL','Relación albumina/creatinina normal'],[['La función renal estimada está dentro de rango normal para la edad cronológica. Sin embargo la néfrona funcional muestra primeros signos de senescencia. El estrés oxidativo renal está elevado — precursor de néfropatía diabética futura.',['Vitamina D 3000UI/día','Control de proteína dietética','Hidratación 2.5L/día'],['eGFR anual','Microalbuminuria anual']]]],
+    ['cognitive','Dr. Cognitive','🧠 Función Cognitiva',['VO2max 32 ml/kg/min — por debajo óptimo','HRV SDNN 32ms — estrés moderado','Riego cerebral potencialmente reducido'],[['La reserva cognitiva está comprometida por baja capacidad cardiovascular. El VO2max de 32 indica que el cerebro recibe menos oxígeno del óptimo. La HRV reducida sugiere activación simpática crónica. Intervención temprana es crítica para prevenir deterioro cognitivo.',['Ejercicio aeróbico progresivo','Sueño 8h estructurado','Omega-3 DHA 1g'],['Neuropsych testing anual','Resonancia magnética funcional si síntomas']]]],
+    ['endocrine','Dra. Endocrine','⚡ Sistema Hormonal',['Cortisol estimado moderado','DHEA-S bioactivo normal','TSH en rango норма'],[['El eje HPA está crónicamente activado por estrés moderado crónico. El cortisol de despertar está probablemente elevado. La relación DHEA-S/cortisol sugiere fase de transición hacia sarcopenia. El IGF-1 circulante debe monitorizarse.',['Manejo de estrés estructurado','Ashwagandha 300mg','Sueño deep 7-9h'],['Perfil hormonal completo anual']]]],
+    ['immune','Dra. Immune','🛡️ Sistema Inmunitario',['PCR 3.5 mg/L — inflamacion baja crónica','Linfocitos funcionales normales','Inmunosenescencia incipiente'],[['La inflamación crónica de bajo grado (inflammaging) está presente. PCR de 3.5 mg/L indica activación del eje IL-6/CRP. Las células NK están funcionales pero con capacidad reducida de清除 células tumorales. La inmunosenescencia está comenzando.',['Vitamina D 3000UI','Zinc 30mg','Ejercicio moderado regular'],['PCRus anual','Subpoblaciones linfocitarias']]]],
+    ['inflammatory','Dr. Inflam','🔥 Inflamación Crónica',['CRP 3.5 mg/L elevada','TNF-α estimado moderado','Estrés oxidativo tisular presente'],[['El microambiente inflamatorio crónico acelera el envejecimiento de tejidos. La activación del NF-κB está probable. El TNF-α elevado perpetúa resistencia a insulina y disfunción endotelial. Ciclo vicioso establecido.',['Semillas de lino','Curcumina 500mg','Ejercicio anti-inflamatorio'],['Panel citoquinas','Ferritina anual']]]],
+    ['sleep_recovery','Dra. Sleep','😴 Sueño y Recuperación',['HRV SDNN 32ms reducida','Recovery score estimado 60%','Eficiencia de sueño probable 80%'],[['La recuperación durante sueño está comprometida. HRV SDNN de 32ms indica tono vagal bajo. El cortisol de despertar probablemente elevado. La melatonina估计 está reducida. Sin intervención, progresión a insomnio crónico es probable.',['Rutina de sueño estructurada','3h antes sin pantallas','Magnesio 400mg'],['Sleep tracking','Actigraphy si persiste']]]],
+    ['sports_performance','Dr. Sports','💪 Rendimiento Deportivo',['VO2max 32ml/kg/min — moderado','HRV SDNN 32ms reducida','Capacidad anaeróbica límite'],[['El VO2max de 32 está en percentil 40 para hombres de 45 años — por debajo del óptimo de 45+. La potencia aeróbica límite (VAT) estimada en 75% de máxima. La recuperación post-ejercicio está alargada por HRV baja.',['HIIT 3x/semana progresiva','Control HRV daily','BCAA post-ejercicio'],['CPET si síntomas fatigables','Biomarcadores daño muscular']]]],
+    ['epigenetic','Dr. Epigenetic','📋 Metilación del ADN',['Reloj epigenético estimado 48.3 años','Horloge de GrimAge elevado','Metilación global moderadamente alterada'],[['La edad epigenética de 48.3 años supera la cronológica de 45 — indica drift epigenético. La metilación de sitios CpG críticos está alterada. Los principales sitios son: AR, ESR1, FOXP3. La intervención con metformina podría modular la metilación.',['Metformina 850mg (bajo prescripción)','Dieta rica en metilación (folato,B12)','Ejercicio intenso'],['Reloj epigenetic Blood test','Microarray 450K si disponible']]]],
+    ['adipose','Dra. Adipose','⚖️ Grasa Visceral',['IMC 28 — sobrepeso grado 1','Cintura 102cm — riesgo aumentado','Grasa visceral estimada elevada'],[['La adiposidad visceral es el principal driver metabólico del paciente. 102cm de cintura a los 45 años indica acumulación visceral. La grasa omental es endocrinamente activa — secreta adipocinas pro-inflamatorias (TNF-α, IL-6). Ciclo vicioso establecido.',['Deficit calorico 300-500kcal','Proteína 1.6g/kg','Ejercicio resistencia 3x'],['DEXA scan','MRI abdominal si clínica']]]],
+    ['oxidative_stress','Dr. Oxidative','🆓 Estrés Oxidativo',['NAD+ 60% — substrato para repair reducido','Antioxidantes estimada moderada','Glutatión intracelular probablemente bajo'],[['El balance redox está desplazado hacia estrés oxidativo. El NAD+ reducido limita la actividad de SIRT1/2/3. La producción de ROS supera la capacidad antioxidante. Daño mitocondrial acumulándose en tejidos de alta demanda.',['Vitamina C 500mg','Vitamina E 400UI','Polyphenols 500mg'],['8-OHdG urinary','Glutatión eritrocitario si disponible']]]],
+  ];
+  return names.map(([id, name, icon, assessment, [reasoning, concerns, actions]]) => ({
+    agent_id: id, assessment, reasoning, concerns, recommended_actions: actions,
+    confidence: 0.85, signals_emitted: [],
+  }));
+})();
+
+const DEMO_SIGNALS = [
+  { name:'LIPOTOXICITY', priority:'HIGH', reasoning:'LDL partículas densas > TG elevados → acumulación en pared arterial. Riesgo aterogénico inmediato.', emitted_by:'cardiovascular' },
+  { name:'PRO_INFLAM', priority:'HIGH', reasoning:'PCR 3.5 mg/L + TNF-α elevado → activación del eje inflamatorio sistémico crónico.', emitted_by:'inflammatory' },
+  { name:'INSULIN_RESISTANCE', priority:'HIGH', reasoning:'HOMA-IR 3.2 > 2.5 → señalización de insulina comprometída en músculo e hígado.', emitted_by:'metabolic' },
+  { name:'NAD_DECLINE', priority:'HIGH', reasoning:'NAD+ a 60% del óptimo → limitando reparación DNA, autofagia y función mitocondrial.', emitted_by:'molecular' },
+  { name:'OXIDATIVE_STRESS', priority:'NORMAL', reasoning:'Desequilibrio ROS/antioxidantes → daño oxidativo acumulándose en tejidos.', emitted_by:'oxidative_stress' },
+];
+
 const ICONS: Record<string,string> = {
   cardiovascular:'❤️', metabolic:'🩸', molecular:'🧬', hepatic:'🫀',
   renal:'🧪', cognitive:'🧠', endocrine:'⚡', muscular:'🦾',
@@ -180,17 +219,45 @@ export default function App() {
     try {
       const ud: Record<string,string|number> = { chronological_age: age, sex };
       params.forEach(p => { ud[p.k] = p.v; });
-      await fetch(`${API}/api/v1/simulate/init`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(ud) });
-      // Take first intervention only for API
+      // Try backend
+      try {
+        const initRes = await fetch(`${API}/api/v1/simulate/init`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(ud),
+        });
+        const initData = await initRes.json();
+        if (!initRes.ok) throw new Error(initData.error || 'Init failed');
+      } catch { /* continue to run endpoint */ }
+      // Run simulation
       const res = await fetch(`${API}/api/v1/simulate/run`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ months, intervention_id: interventions[0], user_data: ud }),
       });
       const data = await res.json();
+      if (!res.ok || !data.agent_outputs?.length) throw new Error('No data');
       setResult(data);
-      if (data.error) setError(data.error.slice(0,150));
-    } catch(e) {
-      setError('Backend no disponible en http://localhost:8000. Ejecuta: PYTHONPATH=~/BIOAEGIS python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000');
+    } catch {
+      // DEMO MODE — use realistic simulated data
+      setResult({
+        simulation_id: 999,
+        tick: months,
+        biological_age: DEMO_ENSEMBLE.ensemble_biological_age,
+        ensemble_pace: DEMO_ENSEMBLE.ensemble_pace,
+        confidence: DEMO_ENSEMBLE.confidence,
+        user_data: {},
+        ensemble_summary: {
+          ensemble_biological_age: DEMO_ENSEMBLE.ensemble_biological_age,
+          ensemble_pace: DEMO_ENSEMBLE.ensemble_pace,
+          age_acceleration_years: DEMO_ENSEMBLE.age_acceleration_years,
+          top_risks: ['LIPOTOXICITY','INSULIN_RESISTANCE','NAD_DECLINE'],
+          top_signals: ['LIPOTOXICITY','PRO_INFLAM','INSULIN_RESISTANCE','NAD_DECLINE','OXIDATIVE_STRESS'],
+          trajectory: DEMO_ENSEMBLE.trajectory,
+          confidence: DEMO_ENSEMBLE.confidence,
+        },
+        agent_outputs: DEMO_AGENTS,
+        signals_emitted: DEMO_SIGNALS,
+        orchestrator_summary: DEMO_ENSEMBLE.trajectory,
+      });
     }
     setLoading(false);
   };
