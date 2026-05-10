@@ -404,7 +404,7 @@ export default function App() {
                   <h2 className="text-lg font-black mb-3">🧠 18 Agentes Biológicos — Análisis Clínico</h2>
                   <div className="grid grid-cols-3 gap-3">
                     {result.agent_outputs.map((out,i) => (
-                      <AgentCard key={i} out={out} expanded={expanded.has(out.agent_id)} onToggle={()=>toggleAgent(out.agent_id)}/>
+                      <AgentCard key={i} out={out} expanded={expanded.has(out.agent_id)} onToggle={()=>toggleAgent(out.agent_id)} onChat={()=>openChat(out)}/>
                     ))}
                   </div>
                   {result.agent_outputs.length===0 && (
