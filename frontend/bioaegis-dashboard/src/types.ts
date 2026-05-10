@@ -1,3 +1,5 @@
+// BioAEGIS Dashboard — Shared Types v2
+
 export interface AgentOutput {
   agent_id: string;
   agent_name?: string;
@@ -18,6 +20,16 @@ export interface Signal {
   emitted_by?: string;
 }
 
+export interface EnsembleSummary {
+  ensemble_biological_age: number;
+  ensemble_pace: number;
+  age_acceleration_years: number;
+  top_risks: string[];
+  top_signals: string[];
+  trajectory: string;
+  confidence: number;
+}
+
 export interface SimResult {
   simulation_id?: number;
   tick?: number;
@@ -25,11 +37,13 @@ export interface SimResult {
   ensemble_pace: number;
   confidence: number;
   user_data: Record<string, number>;
+  ensemble_summary?: EnsembleSummary;
   agent_outputs: AgentOutput[];
   signals_emitted: Signal[];
   orchestrator_summary: string;
   moderator_trajectory?: string;
   moderator_concerns?: string[];
+  before_after?: Record<string, { before: number; after: number }>;
   intervention_name?: string;
 }
 
@@ -47,4 +61,11 @@ export interface CustomInt {
   description: string;
   icon: string;
   color: string;
+}
+
+export interface LLMProvider {
+  id: string;
+  name: string;
+  apiKey: string;
+  models: { id: string; name: string; context: number; free: boolean }[];
 }

@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import type { AgentOutput, SimResult, CustomParam, CustomInt } from './types';
-import type { CustomParam as CP, CustomInt as CI } from './types';
 
 const API = 'http://localhost:8000';
 
@@ -39,20 +38,6 @@ const BUILTIN_INTERVENTIONS = [
   { id: 'combinacion_ejercicio_diana', name: 'Plan Combinado', icon: '🎯', color: '#8b5cf6', description: 'Ejercicio+ayuno+suplementos' },
   { id: 'metformina_850', name: 'Metformina', icon: '💊', color: '#ec4899', description: 'Fármaco sensibilizador insulina' },
 ];
-
-// Types
-interface CustomParam { id: number; name: string; label: string; value: number; unit: string; }
-interface CustomInt { id: string; name: string; description: string; icon: string; color: string; }
-interface AgentOut {
-  agent_id: string; assessment: string; concerns: string[];
-  recommended_actions: string[]; confidence: number;
-  signals_emitted: Array<{ name: string; priority: string }>;
-}
-interface SimResult {
-  agent_outputs: AgentOut[]; signals_emitted: Array<{ name: string; priority: string; reasoning: string; emitted_by?: string }>;
-  user_data: Record<string, number>; biological_age: number; ensemble_pace: number; confidence: number;
-  orchestrator_summary?: string; moderator_trajectory?: string; moderator_concerns?: string[];
-}
 
 // Sub-components
 function AgentCard({ out, expanded, onToggle, onChat }: { out: AgentOutput; expanded: boolean; onToggle: () => void; onChat: () => void }) {
@@ -157,6 +142,27 @@ function OrchestratorPanel({ r }: { r: SimResult }) {
   );
 }
 
+function ChatModal({ agent, onClose, onSend }: { agent: AgentOutput; onClose: () => void; onSend: (msg: string) => void }) {
+  const [msg, setMsg] = useState('');
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[36rem] max-h-[80vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-black text-lg">Chat with {agent.agent_id}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">X</button>
+        </div>
+        <div className="flex-1 overflow-y-auto text-xs text-gray-300 whitespace-pre-wrap bg-gray-950 rounded-lg p-4 mb-4 max-h-64 border border-gray-800">
+          {agent.reasoning || 'No reasoning yet.'}
+        </div>
+        <div className="flex gap-2">
+          <input className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm" value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==='Enter' && onSend(msg)} placeholder="Ask the agent..."/>
+          <button onClick={()=>onSend(msg)} className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">Send</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddParamModal({ onAdd, onClose }: { onAdd: (p: {name:string;label:string;value:number;unit:string})=>void; onClose:()=>void }) {
   const [name,setName]=useState(''); const [label,setLabel]=useState(''); const [value,setValue]=useState(0); const [unit,setUnit]=useState('');
   const handle=()=>{ if(name&&label) onAdd({name: name.toLowerCase().replace(/\s+/g,'_'), label, value, unit}); onClose(); };
@@ -230,7 +236,6 @@ export default function App() {
   const [age, setAge] = useState(40);
   const [sex, setSex] = useState<'male'|'female'>('male');
   const [chatAgent, setChatAgent] = useState<AgentOutput|null>(null);
-  const [chatMsg, setChatMsg] = useState('');
 
   const buildUserData = useCallback(() => {
     const ud: Record<string,string|number> = { chronological_age: age, sex };
@@ -262,18 +267,20 @@ export default function App() {
 
   const addInt = (i: CustomInt) => setCustomInts(prev => [...prev, i]);
 
-  const openChat = (agent: AgentOutput) => { setChatAgent(agent); setChatMsg(''); };
-  const sendChat = async () => {
-    if (!chatAgent || !chatMsg.trim()) return;
+  const openChat = (agent: AgentOutput) => { setChatAgent(agent); };
+  const sendChat = async (msg: string) => {
+    if (!chatAgent || !msg.trim()) return;
     try {
       const res = await fetch(`${API}/api/v1/simulate/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent_id: chatAgent.agent_id, message: chatMsg, user_data: buildUserData() }),
+        body: JSON.stringify({ agent_id: chatAgent.agent_id, message: msg, user_data: buildUserData() }),
       });
       const data = await res.json();
-      setChatAgent(prev => prev ? { ...prev, reasoning: (prev.reasoning || '') + '\n\n---\n👤 ' + chatMsg + '\n\n💡 ' + (data.response || data.message || 'Respuesta del agente') } : prev);
-    } catch { setChatAgent(prev => prev ? { ...prev, reasoning: (prev.reasoning || '') + '\n\n---\n❌ Error: Backend no disponible' } : prev); }
-    setChatMsg('');
+      const reply = data.response || data.message || 'Respuesta del agente';
+      setChatAgent(prev => prev ? { ...prev, reasoning: ((prev.reasoning || '') + '\n\n---\n👤 Pregunta: ' + msg + '\n\n💡 Respuesta: ' + reply) } : prev);
+    } catch {
+      setChatAgent(prev => prev ? { ...prev, reasoning: ((prev.reasoning || '') + '\n\n---\n❌ Error: Backend no disponible') } : prev);
+    }
   };
 
   const allParams = [...params, ...customParams.map(p => ({ key: p.name, label: p.label, value: p.value, unit: p.unit }))];
@@ -439,6 +446,7 @@ export default function App() {
         )}
       </div>
 
+      {chatAgent && <ChatModal agent={chatAgent} onClose={()=>setChatAgent(null)} onSend={sendChat}/>}
       {showAddParam && <AddParamModal onAdd={addParam} onClose={()=>setShowAddParam(false)}/>}
       {showAddInt && <AddInterventionModal onAdd={addInt} onClose={()=>setShowAddInt(false)}/>}
     </div>
