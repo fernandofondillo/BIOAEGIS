@@ -1,71 +1,102 @@
-import { useState, useCallback } from 'react';
-import type { AgentOutput, SimResult, CustomParam, CustomInt } from './types';
+// BioAEGIS Dashboard v4 — Fernando Fondillo / VIHOLABS
+import { useState } from 'react';
+import type { AgentOutput, SimResult } from './types';
 
 const API = 'http://localhost:8000';
 
-const BUILTIN_PARAMS = [
-  { key: 'ldl', label: 'LDL Colesterol', unit: 'mg/dL', value: 155 },
-  { key: 'hdl', label: 'HDL Colesterol', unit: 'mg/dL', value: 42 },
-  { key: 'tg', label: 'Triglicéridos', unit: 'mg/dL', value: 210 },
-  { key: 'glucose', label: 'Glucosa Ayunas', unit: 'mg/dL', value: 102 },
-  { key: 'hba1c', label: 'HbA1c', unit: '%', value: 5.8 },
-  { key: 'homa_ir', label: 'HOMA-IR', unit: '', value: 3.2 },
-  { key: 'crp', label: 'PCR', unit: 'mg/L', value: 3.5 },
-  { key: 'systolic_bp', label: 'Presión Sistólica', unit: 'mmHg', value: 135 },
-  { key: 'vo2max', label: 'VO2max', unit: 'ml/kg/min', value: 32 },
-  { key: 'hrv_sdnn', label: 'HRV SDNN', unit: 'ms', value: 32 },
-  { key: 'waist', label: 'Cintura', unit: 'cm', value: 102 },
-  { key: 'bmi', label: 'IMC', unit: 'kg/m²', value: 28 },
-  { key: 'nadi_level', label: 'NAD+', unit: '%', value: 60 },
-  { key: 'vitamin_d', label: 'Vitamina D', unit: 'ng/mL', value: 22 },
-];
-
-const AGENT_ICONS: Record<string, string> = {
-  cardiovascular: '❤️', metabolic: '🩸', inflammatory: '🔥', molecular: '🧬',
-  sleep_recovery: '😴', sports_performance: '💪', hepatic: '🫀', renal: '🧪',
-  cognitive: '🧠', endocrine: '⚡', muscular: '🦾', immune: '🛡️',
-  epigenetic: '📋', adipose: '⚖️', metabolic_flexibility: '🔋',
-  insulin_sensitivity: '🩹', nutritional_timing: '⏰', oxidative_stress: '🆓', default: '🦠',
+const ICONS: Record<string,string> = {
+  cardiovascular:'❤️', metabolic:'🩸', molecular:'🧬', hepatic:'🫀',
+  renal:'🧪', cognitive:'🧠', endocrine:'⚡', muscular:'🦾',
+  immune:'🛡️', inflammatory:'🔥', sleep_recovery:'😴',
+  sports_performance:'💪', epigenetic:'📋', adipose:'⚖️',
+  metabolic_flexibility:'🔋', insulin_sensitivity:'🩹',
+  nutritional_timing:'⏰', oxidative_stress:'🆓', default:'🦠',
 };
 
-const BUILTIN_INTERVENTIONS = [
-  { id: 'none', name: 'Sin intervención', icon: '⚪', color: '#6b7280', description: 'Simular sin cambios' },
-  { id: 'ayuno_intermitente_16_8', name: 'Ayuno 16:8', icon: '⏰', color: '#3b82f6', description: '16h ayuno / 8h comida' },
-  { id: 'ejercicio_aerobico_150', name: 'Ejercicio Aeróbico', icon: '🏃', color: '#10b981', description: '150 min/sem moderada' },
-  { id: 'hiit_3x', name: 'HIIT 3x', icon: '⚡', color: '#f59e0b', description: '3x HIIT/sem' },
-  { id: 'dieta_mediterranea', name: 'Dieta Mediterránea', icon: '🫒', color: '#22c55e', description: 'Frutas, verduras, aceite de oliva' },
-  { id: 'omega3_epa_dha_2g', name: 'Omega-3 (2g)', icon: '🐟', color: '#06b6d4', description: '2g EPA+DHA diarios' },
-  { id: 'combinacion_ejercicio_diana', name: 'Plan Combinado', icon: '🎯', color: '#8b5cf6', description: 'Ejercicio+ayuno+suplementos' },
-  { id: 'metformina_850', name: 'Metformina', icon: '💊', color: '#ec4899', description: 'Fármaco sensibilizador insulina' },
+const DEFAULTS = [
+  { k:'ldl',l:'LDL Colesterol',u:'mg/dL',v:155 }, { k:'hdl',l:'HDL Colesterol',u:'mg/dL',v:42 },
+  { k:'tg',l:'Triglicéridos',u:'mg/dL',v:210 }, { k:'glucose',l:'Glucosa Ayunas',u:'mg/dL',v:102 },
+  { k:'hba1c',l:'HbA1c',u:'%',v:5.8 }, { k:'homa_ir',l:'HOMA-IR',u:'',v:3.2 },
+  { k:'crp',l:'PCR',u:'mg/L',v:3.5 }, { k:'systolic_bp',l:'Presión Sistólica',u:'mmHg',v:135 },
+  { k:'vo2max',l:'VO2max',u:'ml/kg/min',v:32 }, { k:'hrv_sdnn',l:'HRV SDNN',u:'ms',v:32 },
+  { k:'waist',l:'Cintura',u:'cm',v:102 }, { k:'bmi',l:'IMC',u:'kg/m²',v:28 },
+  { k:'nadi_level',l:'NAD+',u:'%',v:60 }, { k:'vitamin_d',l:'Vitamina D',u:'ng/mL',v:22 },
 ];
 
-// Sub-components
-function AgentCard({ out, expanded, onToggle, onChat }: { out: AgentOutput; expanded: boolean; onToggle: () => void; onChat: () => void }) {
-  const icon = AGENT_ICONS[out.agent_id] ?? AGENT_ICONS.default;
+const INTERVENTIONS = [
+  { id:'none', n:'Sin intervención', i:'⚪', c:'#6b7280' },
+  { id:'ayuno_intermitente_16_8', n:'Ayuno 16:8', i:'⏰', c:'#3b82f6' },
+  { id:'ejercicio_aerobico_150', n:'Ejercicio Aeróbico', i:'🏃', c:'#10b981' },
+  { id:'hiit_3x', n:'HIIT 3x', i:'⚡', c:'#f59e0b' },
+  { id:'dieta_mediterranea', n:'Dieta Mediterránea', i:'🫒', c:'#22c55e' },
+  { id:'omega3_epa_dha_2g', n:'Omega-3 2g', i:'🐟', c:'#06b6d4' },
+  { id:'combinacion_ejercicio_diana', n:'Plan Combinado', i:'🎯', c:'#8b5cf6' },
+  { id:'metformina_850', n:'Metformina', i:'💊', c:'#ec4899' },
+];
+
+const AGENT_NAMES: Record<string,string> = {
+  cardiovascular:'Dr. Vessels — Cardiovascular', metabolic:'Dra. Glucose — Metabólico',
+  molecular:'Dr. Molecular — NAD+/AMPK', hepatic:'Dr. Hepatic — Hígado',
+  renal:'Dra. Renal — Riñón', cognitive:'Dr. Cognitive — Cerebro',
+  endocrine:'Dra. Endocrine — Hormonas', muscular:'Dr. Muscular — Músculo',
+  immune:'Dra. Immune — Inmunidad', inflammatory:'Dr. Inflam — Inflamación',
+  sleep_recovery:'Dra. Sleep — Sueño', sports_performance:'Dr. Sports — Rendimiento',
+  epigenetic:'Dr. Epigenetic — Epigenética', adipose:'Dra. Adipose — Grasa Visceral',
+  metabolic_flexibility:'Dr. Flex — Flexibilidad', insulin_sensitivity:'Dr. Insulin — Insulina',
+  nutritional_timing:'Dr. Timing — Timing', oxidative_stress:'Dr. Oxidative — Estrés Oxidativo',
+};
+
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function AgentCard({ out, exp, onToggle, onChat }: { out:AgentOutput; exp:boolean; onToggle:()=>void; onChat:()=>void }) {
+  const icon = ICONS[out.agent_id] ?? ICONS.default;
+  const name = AGENT_NAMES[out.agent_id] ?? out.agent_id;
   const conf = out.confidence > 0.8 ? '#22c55e' : out.confidence > 0.6 ? '#f59e0b' : '#6b7280';
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 cursor-pointer hover:border-cyan-500 transition-all">
-      <div className="flex items-center gap-2 mb-2" onClick={onToggle}>
+    <div className="bg-gray-800/80 rounded-xl border border-gray-700 hover:border-cyan-500/50 transition-all duration-200">
+      <div className="flex items-center gap-2 p-4 cursor-pointer" onClick={onToggle}>
         <span className="text-2xl">{icon}</span>
-        <span className="text-white font-semibold text-sm capitalize flex-1">{out.agent_id.replace(/_/g, ' ')}</span>
-        <div><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: conf+'33', color: conf }}>{Math.round(out.confidence*100)}%</span></div>
+        <div className="flex-1 min-w-0">
+          <div className="text-white font-bold text-xs truncate">{name}</div>
+          <div className="text-gray-400 text-xs truncate mt-0.5">{out.assessment || 'Sin datos'}</div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-xs px-2 py-0.5 rounded-full" style={{background:`${conf}22`,color:conf}}>
+            {Math.round(out.confidence*100)}%
+          </span>
+          <span className="text-gray-600 text-xs">{exp?'▲':'▼'}</span>
+        </div>
       </div>
-      <p className="text-gray-300 text-xs line-clamp-2 mb-2">{out.assessment}</p>
-      {expanded && (
-        <div className="space-y-2">
+      {exp && (
+        <div className="px-4 pb-4 space-y-2 border-t border-gray-700/50">
           {out.reasoning && (
-            <div className="text-xs bg-cyan-900/20 border border-cyan-600/30 text-cyan-300 rounded-lg p-2">
-              <span className="font-bold text-cyan-400">💡 Razonamiento:</span> {out.reasoning}
+            <div className="bg-cyan-950/30 border border-cyan-800/30 rounded-lg p-3 mt-2">
+              <div className="text-cyan-400 text-xs font-bold mb-1">💡 Razonamiento clínico</div>
+              <div className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">{out.reasoning}</div>
             </div>
           )}
-          {out.concerns.slice(0,2).map((c,i) => <div key={i} className="text-xs bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-2">⚠️ {c}</div>)}
-          {out.recommended_actions.slice(0,2).map((a,i) => <div key={i} className="text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg p-2">✅ {a}</div>)}
-          {out.signals_emitted?.length > 0 && <div className="flex flex-wrap gap-1 mt-2">
-            {out.signals_emitted.map((s,i) => <span key={i} className="text-xs bg-cyan-900/40 text-cyan-300 border border-cyan-700 rounded px-1.5 py-0.5">{s}</span>)}
-          </div>}
+          {out.concerns?.slice(0,2).map((c,i) => (
+            <div key={i} className="bg-red-950/30 border border-red-800/30 rounded-lg p-2">
+              <div className="text-red-400 text-xs font-bold mb-0.5">⚠️ Concern</div>
+              <div className="text-gray-300 text-xs">{c}</div>
+            </div>
+          ))}
+          {out.recommended_actions?.slice(0,2).map((a,i) => (
+            <div key={i} className="bg-emerald-950/30 border border-emerald-800/30 rounded-lg p-2">
+              <div className="text-emerald-400 text-xs font-bold mb-0.5">✅ Acción recomendada</div>
+              <div className="text-gray-300 text-xs">{a}</div>
+            </div>
+          ))}
+          {out.signals_emitted?.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {out.signals_emitted.map((s,i) => (
+                <span key={i} className="text-xs bg-cyan-900/40 text-cyan-300 border border-cyan-700 rounded px-2 py-0.5">{s}</span>
+              ))}
+            </div>
+          )}
           <button onClick={(e) => { e.stopPropagation(); onChat(); }}
             className="w-full mt-2 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all">
-            💬 Dialogar con {out.agent_id.replace(/_/g,' ')}
+            💬 Dialogar con este agente
           </button>
         </div>
       )}
@@ -73,383 +104,289 @@ function AgentCard({ out, expanded, onToggle, onChat }: { out: AgentOutput; expa
   );
 }
 
-function SignalFlow({ signals }: { signals: SimResult['signals_emitted'] }) {
-  if (!signals?.length) return <div className="text-gray-500 text-sm text-center py-6">Sin señales emitidas en esta simulación</div>;
-  const pc: Record<string,string> = { HIGH: '#ef4444', CRITICAL: '#dc2626', NORMAL: '#f59e0b', LOW: '#6b7280', info: '#6b7280', warning: '#f59e0b', critical: '#ef4444' };
-  const organs = ['Cardiovascular','Metabólico','Inflamación','Molecular','Sueño','Rendimiento'];
-  const icons = ['❤️','🩸','🔥','🧬','😴','💪'];
-  return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-700">
-      <h3 className="text-white font-bold text-sm mb-4">🔄 Señales Inter-Agentes — Biosíntesis</h3>
-      <div className="space-y-1 mb-4">
-        {signals.map((s,i) => (
-          <div key={i} className="flex items-center gap-2 text-xs bg-gray-800 rounded-lg p-2">
-            <span className="font-bold w-14 shrink-0" style={{ color: pc[s.priority]??'#6b7280' }}>{s.priority}</span>
-            <span className="text-cyan-300 w-44 shrink-0 truncate font-medium">{s.name}</span>
-            {s.emitted_by && <span className="text-gray-500 w-36 shrink-0 truncate">de: {s.emitted_by}</span>}
-            <span className="text-gray-400 flex-1 truncate">{s.reasoning?.slice(0,70)}</span>
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {organs.map((org,i) => {
-          const em = signals.filter(s => s.emitted_by?.includes(org));
-          const rc = signals.filter(s => s.name.includes(org));
-          return (
-            <div key={i} className="bg-gray-800 rounded-lg p-3 text-center">
-              <div className="text-2xl mb-1">{icons[i]}</div>
-              <div className="text-xs text-gray-400">{org}</div>
-              {em.length>0 && <div className="text-xs text-red-400 mt-1">→ {em.length}</div>}
-              {rc.length>0 && <div className="text-xs text-green-400 mt-1">← {rc.length}</div>}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function OrchestratorPanel({ r }: { r: SimResult }) {
-  const pace = r.ensemble_pace ?? r.ensemble_summary?.ensemble_pace ?? 1.0;
-  const pc = pace > 1.2 ? '#ef4444' : pace > 1.0 ? '#f59e0b' : '#22c55e';
-  return (
-    <div className="bg-gray-900 rounded-xl p-5 border border-gray-700">
-      <h3 className="text-white font-bold text-sm mb-4">🎛️ Panel del Orquestador — Biosíntesis</h3>
-      <div className="grid grid-cols-4 gap-3 text-center mb-4">
-        {[
-          [r.biological_age.toFixed(1), 'Edad Biológica Final', 'text-cyan-400'],
-          [r.ensemble_pace.toFixed(3), 'DunedinPACE', pc+''],
-          [r.agent_outputs.length.toString(), 'Agentes Activos', 'text-emerald-400'],
-          [r.signals_emitted.length.toString(), 'Señales Emitidas', 'text-yellow-400'],
-        ].map(([v,l,c],i) => (
-          <div key={i} className="bg-gray-800 rounded-xl p-3">
-            <div className={`text-2xl font-black ${c}`}>{v}</div>
-            <div className="text-xs text-gray-400 mt-1">{l}</div>
-          </div>
-        ))}
-      </div>
-      {r.orchestrator_summary && <div className="bg-gray-800 rounded-lg p-3 mb-3">
-        <div className="text-xs font-bold text-cyan-400 mb-1">📋 Conclusión del Orquestador</div>
-        <div className="text-xs text-gray-300">{r.orchestrator_summary}</div>
-      </div>}
-      {r.moderator_trajectory && <div className="bg-yellow-900/10 border border-yellow-700/30 rounded-lg p-3">
-        <div className="text-xs font-bold text-yellow-400 mb-1">🩺 Moderador Clínico</div>
-        <div className="text-xs text-gray-300 mb-2">{r.moderator_trajectory}</div>
-        {r.moderator_concerns && r.moderator_concerns.length > 0 && <div className="flex flex-wrap gap-1">
-          {r.moderator_concerns.map((c: string, i: number) => <span key={i} className="text-xs bg-yellow-900/40 text-yellow-300 rounded px-2 py-0.5">{c}</span>)}
-        </div>}
-      </div>}
-    </div>
-  );
-}
-
-function ChatModal({ agent, onClose, onSend }: { agent: AgentOutput; onClose: () => void; onSend: (msg: string) => void }) {
+function ChatModal({ agent, onClose }: { agent:AgentOutput; onClose:()=>void }) {
   const [msg, setMsg] = useState('');
+  const [history, setHistory] = useState<[string,string][]>([['', agent.reasoning || 'Sin razonamiento registrado. Ejecuta una simulación primero.']]);
+  const [loading, setLoading] = useState(false);
+  const name = AGENT_NAMES[agent.agent_id] ?? agent.agent_id;
+  const send = async () => {
+    if (!msg.trim() || loading) return;
+    setLoading(true);
+    const userMsg = msg;
+    setHistory(h => [...h, [userMsg, '']]);
+    setMsg('');
+    try {
+      const r = await fetch(`${API}/api/v1/simulate/chat`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ agent_id: agent.agent_id, message: userMsg, user_data: {} }),
+      });
+      const d = await r.json();
+      setHistory(h => [...h.slice(0,-1), [userMsg, d.response || 'Respuesta recibida']]);
+    } catch {
+      setHistory(h => [...h.slice(0,-1), [userMsg, 'Error: backend no disponible en puerto 8000']]);
+    }
+    setLoading(false);
+  };
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[36rem] max-h-[80vh] flex flex-col" onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-black text-lg">Chat with {agent.agent_id}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">X</button>
-        </div>
-        <div className="flex-1 overflow-y-auto text-xs text-gray-300 whitespace-pre-wrap bg-gray-950 rounded-lg p-4 mb-4 max-h-64 border border-gray-800">
-          {agent.reasoning || 'No reasoning yet.'}
-        </div>
-        <div className="flex gap-2">
-          <input className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm" value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==='Enter' && onSend(msg)} placeholder="Ask the agent..."/>
-          <button onClick={()=>onSend(msg)} className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">Send</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddParamModal({ onAdd, onClose }: { onAdd: (p: {name:string;label:string;value:number;unit:string})=>void; onClose:()=>void }) {
-  const [name,setName]=useState(''); const [label,setLabel]=useState(''); const [value,setValue]=useState(0); const [unit,setUnit]=useState('');
-  const handle=()=>{ if(name&&label) onAdd({name: name.toLowerCase().replace(/\s+/g,'_'), label, value, unit}); onClose(); };
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[22rem]" onClick={e=>e.stopPropagation()}>
-        <h3 className="text-white font-black text-lg mb-4">➕ Añadir Biomarcador</h3>
-        <div className="space-y-3">
-          <div><label className="text-xs text-gray-400 block mb-1">Nombre visible</label>
-            <input className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm" value={label} onChange={e=>setLabel(e.target.value)} placeholder="ej: Ferritina"/></div>
-          <div><label className="text-xs text-gray-400 block mb-1">ID técnico (sin espacios)</label>
-            <input className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm" value={name} onChange={e=>setName(e.target.value)} placeholder="ej: ferritina"/></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-gray-400 block mb-1">Valor</label>
-              <input type="number" className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm" value={value} onChange={e=>setValue(parseFloat(e.target.value)||0)}/></div>
-            <div><label className="text-xs text-gray-400 block mb-1">Unidad</label>
-              <input className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm" value={unit} onChange={e=>setUnit(e.target.value)} placeholder="ej: ng/mL"/></div>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[85vh]" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-700">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{ICONS[agent.agent_id] ?? '🦠'}</span>
+            <div>
+              <div className="text-white font-black">{name}</div>
+              <div className="text-gray-500 text-xs">Agente Biológico — BioAEGIS</div>
+            </div>
           </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-800">✕</button>
         </div>
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-xl text-sm font-semibold transition-all">Cancelar</button>
-          <button onClick={handle} className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-bold">Añadir ➕</button>
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {history.map(([q,a], i) => (
+            <div key={i} className="space-y-2">
+              {q && <div className="flex justify-end"><div className="bg-purple-700 text-white text-xs rounded-xl rounded-br-none px-4 py-2 max-w-[80%]">{q}</div></div>}
+              {a && <div className="flex justify-start"><div className="bg-gray-800 text-gray-200 text-xs rounded-xl rounded-bl-none px-4 py-2 max-w-[85%] whitespace-pre-wrap">{a}</div></div>}
+            </div>
+          ))}
+          {loading && <div className="text-gray-500 text-xs animate-pulse">⏳ El agente está pensando...</div>}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function AddInterventionModal({ onAdd, onClose }: { onAdd: (i: CustomInt)=>void; onClose:()=>void }) {
-  const [name,setName]=useState(''); const [desc,setDesc]=useState(''); const [icon,setIcon]=useState('💊'); const [color,setColor]=useState('#8b5cf6');
-  const colors=['#3b82f6','#10b981','#f59e0b','#22c55e','#06b6d4','#8b5cf6','#ec4899','#ef4444'];
-  const handle=()=>{ if(name) onAdd({id:`custom_${Date.now()}`, name, description:desc, icon, color}); onClose(); };
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[22rem]" onClick={e=>e.stopPropagation()}>
-        <h3 className="text-white font-black text-lg mb-4">➕ Añadir Intervención</h3>
-        <div className="space-y-3">
-          <div><label className="text-xs text-gray-400 block mb-1">Nombre</label>
-            <input className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm" value={name} onChange={e=>setName(e.target.value)} placeholder="ej: Keto Dieta 4 semanas"/></div>
-          <div><label className="text-xs text-gray-400 block mb-1">Descripción</label>
-            <textarea className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm resize-none" rows={2} value={desc} onChange={e=>setDesc(e.target.value)}/></div>
-          <div><label className="text-xs text-gray-400 block mb-1">Icono (emoji)</label>
-            <input className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm" value={icon} onChange={e=>setIcon(e.target.value)}/></div>
-          <div><label className="text-xs text-gray-400 block mb-2">Color</label>
-            <div className="flex gap-2">{colors.map(c=><button key={c} onClick={()=>setColor(c)} className="w-8 h-8 rounded-full border-2 transition-all" style={{backgroundColor:c, borderColor: color===c?'white':'transparent'}}/>)}</div>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 py-2.5 bg-gray-700 text-gray-300 rounded-xl text-sm font-semibold">Cancelar</button>
-          <button onClick={handle} className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-bold">Añadir ➕</button>
+        <div className="flex gap-2 p-4 border-t border-gray-700">
+          <input className="flex-1 bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:border-cyan-500 focus:outline-none" value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Escribe tu pregunta al agente..."/>
+          <button onClick={send} disabled={!msg.trim()||loading} className="px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white text-sm font-bold transition-all">Enviar</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main App ───────────────────────────────────────────────────────────────
+// ── Main App ────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState<'biomarkers'|'simulation'|'memory'>('biomarkers');
-  const [params, setParams] = useState(BUILTIN_PARAMS);
-  const [customParams, setCustomParams] = useState<CustomParam[]>([]);
-  const [interventions] = useState(BUILTIN_INTERVENTIONS);
-  const [customInts, setCustomInts] = useState<CustomInt[]>([]);
-  const [selectedInt, setSelectedInt] = useState('none');
+  const [profileName, setProfileName] = useState('Paciente Principal');
+  const [age, setAge] = useState(45);
+  const [sex, setSex] = useState<'male'|'female'>('male');
+  const [params, setParams] = useState(DEFAULTS);
+  const [interventions, setInterventions] = useState<string[]>(['none']);
   const [months, setMonths] = useState(6);
   const [result, setResult] = useState<SimResult|null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [showAddParam, setShowAddParam] = useState(false);
-  const [showAddInt, setShowAddInt] = useState(false);
-  const [age, setAge] = useState(40);
-  const [sex, setSex] = useState<'male'|'female'>('male');
   const [chatAgent, setChatAgent] = useState<AgentOutput|null>(null);
+  const [error, setError] = useState('');
 
-  const buildUserData = useCallback(() => {
-    const ud: Record<string,string|number> = { chronological_age: age, sex };
-    params.forEach(p => { ud[p.key] = p.value; });
-    customParams.forEach(p => { ud[p.name] = p.value; });
-    return ud;
-  }, [params, customParams, age, sex]);
+  const toggle = (id: string) =>
+    setExpanded(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
 
-  const runSimulation = async () => {
-    setLoading(true);
+  const runSim = async () => {
+    setLoading(true); setError('');
     try {
-      const ud = buildUserData();
+      const ud: Record<string,string|number> = { chronological_age: age, sex };
+      params.forEach(p => { ud[p.k] = p.v; });
       await fetch(`${API}/api/v1/simulate/init`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(ud) });
+      // Take first intervention only for API
       const res = await fetch(`${API}/api/v1/simulate/run`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ months, intervention_id: selectedInt, user_data: ud }),
+        body: JSON.stringify({ months, intervention_id: interventions[0], user_data: ud }),
       });
       const data = await res.json();
       setResult(data);
-    } catch { alert('Backend no disponible en '+API+'. Asegúrate de que el servidor está corriendo.'); }
+      if (data.error) setError(data.error.slice(0,150));
+    } catch(e) {
+      setError('Backend no disponible en http://localhost:8000. Ejecuta: PYTHONPATH=~/BIOAEGIS python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000');
+    }
     setLoading(false);
   };
 
-  const toggleAgent = (id: string) =>
-    setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-
-  const addParam = (p: {name:string;label:string;value:number;unit:string}) =>
-    setCustomParams(prev => [...prev, { id: Date.now(), ...p }]);
-
-  const addInt = (i: CustomInt) => setCustomInts(prev => [...prev, i]);
-
-  const openChat = (agent: AgentOutput) => { setChatAgent(agent); };
-  const sendChat = async (msg: string) => {
-    if (!chatAgent || !msg.trim()) return;
-    try {
-      const res = await fetch(`${API}/api/v1/simulate/chat`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent_id: chatAgent.agent_id, message: msg, user_data: buildUserData() }),
-      });
-      const data = await res.json();
-      const reply = data.response || data.message || 'Respuesta del agente';
-      setChatAgent(prev => prev ? { ...prev, reasoning: ((prev.reasoning || '') + '\n\n---\n👤 Pregunta: ' + msg + '\n\n💡 Respuesta: ' + reply) } : prev);
-    } catch {
-      setChatAgent(prev => prev ? { ...prev, reasoning: ((prev.reasoning || '') + '\n\n---\n❌ Error: Backend no disponible') } : prev);
-    }
-  };
-
-  const allParams = [...params, ...customParams.map(p => ({ key: p.name, label: p.label, value: p.value, unit: p.unit }))];
-  const allInts = [...interventions, ...customInts];
-  const bioAge = result?.biological_age ?? age;
-  const pace = result?.ensemble_pace ?? 1.0;
-  const paceColor = pace > 1.2 ? '#ef4444' : pace > 1.0 ? '#f59e0b' : '#22c55e';
+  const bioAge = result?.ensemble_summary?.ensemble_biological_age ?? result?.biological_age ?? 0;
+  const pace = result?.ensemble_summary?.ensemble_pace ?? result?.ensemble_pace ?? 1.0;
+  const paceColor = pace > 1.15 ? '#ef4444' : pace > 1.0 ? '#f59e0b' : '#22c55e';
+  const nAgents = result?.agent_outputs?.length ?? 0;
+  const nSignals = result?.signals_emitted?.length ?? 0;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* HEADER */}
-      <div style={{background:'linear-gradient(135deg,#0a0a1a,#1a1040,#0a0a1a)'}} className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      {/* Header */}
+      <div className="bg-gray-900/80 border-b border-gray-800 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black tracking-tight">
-              <span style={{color:'#22d3ee'}}>🐟</span>{' '}<span style={{color:'#22d3ee'}}>BioA</span><span style={{color:'#a855f7'}}>EGIS</span>
-              <span className="text-gray-500 text-base ml-2">v1.0</span>
+            <h1 className="text-2xl font-black">
+              <span style={{color:'#22d3ee'}}>🐟</span>{' '}
+              <span style={{color:'#22d3ee'}}>BioA</span>
+              <span style={{color:'#a855f7'}}>EGIS</span>
+              <span className="text-gray-500 text-sm ml-2 font-normal">v4 — Gemelo Digital Biológico</span>
             </h1>
-            <p className="text-gray-500 text-xs mt-0.5">Sistema de Gemelo Digital Biológico — Fernando Fondillo / VIHOLABS</p>
+            <p className="text-gray-500 text-xs mt-0.5">Fernando Fondillo · VIHOLABS · github.com/fernandofondillo/BIOAEGIS</p>
           </div>
-          <div className="text-right text-xs text-gray-500">github.com/fernandofondillo/BIOAEGIS</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-gray-800 rounded-xl px-4 py-2 border border-gray-700">
+              <span className="text-gray-400 text-xs">👤</span>
+              <input className="bg-transparent text-white text-sm font-semibold w-36 focus:outline-none" value={profileName} onChange={e=>setProfileName(e.target.value)} placeholder="Nombre del perfil..."/>
+            </div>
+            <div className="flex gap-2 items-center bg-gray-800 rounded-xl px-4 py-2 border border-gray-700">
+              <label className="text-gray-400 text-xs">Edad</label>
+              <input type="number" value={age} onChange={e=>setAge(Number(e.target.value))} className="w-14 bg-transparent text-white font-bold text-sm text-center"/>
+              <select value={sex} onChange={e=>setSex(e.target.value as 'male'|'female')} className="bg-transparent text-white text-sm">
+                <option value="male">Hombre</option><option value="female">Mujer</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6">
-        {/* TABS */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {([['biomarkers','📊 Biomarcadores'],['simulation','🧬 Simulación'],['memory','🧠 Memoria']] as const).map(([t,l]) => (
-            <button key={t} onClick={()=>setTab(t)}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${tab===t?'bg-white text-gray-900':'bg-gray-800 text-gray-400 hover:text-white'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Error banner */}
+        {error && (
+          <div className="bg-red-950/50 border border-red-700/50 rounded-xl p-4 text-red-300 text-sm">
+            ❌ {error}
+          </div>
+        )}
 
-        {/* ── TAB: BIOMARKERS ── */}
-        {tab==='biomarkers' && (
-          <div>
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-xl font-black">Datos Biométricos</h2>
-                <p className="text-gray-500 text-sm">{allParams.length} parámetros registrados</p>
-              </div>
-              <div className="flex gap-3 items-center">
-                <div className="flex gap-2 items-center bg-gray-900 rounded-xl px-4 py-2 border border-gray-700">
-                  <label className="text-xs text-gray-400">Edad</label>
-                  <input type="number" value={age} onChange={e=>setAge(parseInt(e.target.value)||40)} className="w-16 bg-transparent text-white font-bold text-sm"/>
-                  <label className="text-xs text-gray-400 ml-2">Sexo</label>
-                  <select value={sex} onChange={e=>setSex(e.target.value as 'male'|'female')} className="bg-transparent text-white text-sm">
-                    <option value="male">Hombre</option><option value="female">Mujer</option>
-                  </select>
-                </div>
-                <button onClick={()=>setShowAddParam(true)}
-                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold transition-all">
-                  ➕ Añadir Dato
+        {/* Main grid: interventions + params */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Interventions */}
+          <div className="lg:col-span-2 bg-gray-900 rounded-2xl p-5 border border-gray-800">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-black text-white">🧬 Intervenciones</h2>
+              <span className="text-xs text-gray-500">Selecciona una · más adelante múltiples</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {INTERVENTIONS.map(it => (
+                <button key={it.id}
+                  onClick={() => setInterventions([it.id])}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${interventions.includes(it.id) ? 'border-white scale-105' : 'border-gray-700 bg-gray-800 hover:border-gray-500'}`}
+                  style={{backgroundColor: interventions.includes(it.id) ? `${it.c}22` : undefined}}>
+                  <div className="text-3xl mb-2">{it.i}</div>
+                  <div className="font-bold text-white text-xs leading-tight">{it.n}</div>
                 </button>
+              ))}
+            </div>
+            <div className="mt-4 text-xs text-gray-500">
+              Seleccionada: <span className="text-cyan-400 font-bold">{INTERVENTIONS.find(i=>i.id===interventions[0])?.n}</span>
+            </div>
+          </div>
+
+          {/* Params panel */}
+          <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800 flex flex-col justify-between">
+            <div>
+              <h2 className="text-lg font-black text-white mb-4">⚙️ Parámetros de Simulación</h2>
+              <div className="mb-5">
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-400 text-sm">Meses de simulación</span>
+                  <span className="text-cyan-400 font-black text-lg">{months}</span>
+                </div>
+                <input type="range" min="1" max="60" value={months} onChange={e=>setMonths(Number(e.target.value))} className="w-full" style={{accentColor:'#22d3ee'}}/>
+                <div className="flex justify-between text-xs text-gray-600 mt-1"><span>1 mes</span><span>60 meses</span></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-800 rounded-xl p-3 text-center">
+                  <div className="text-3xl font-black text-cyan-400">{bioAge > 0 ? bioAge.toFixed(1) : '--'}</div>
+                  <div className="text-xs text-gray-400 mt-1">Edad Biológica</div>
+                </div>
+                <div className="bg-gray-800 rounded-xl p-3 text-center">
+                  <div className="text-3xl font-black" style={{color:paceColor}}>{pace > 0 && pace !== 1.0 ? pace.toFixed(3) : '--'}</div>
+                  <div className="text-xs text-gray-400 mt-1">DunedinPACE</div>
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              {allParams.map(p => (
-                <div key={p.key} className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-                  <div className="text-xs text-gray-400 mb-2">{p.label}</div>
-                  <div className="flex items-center gap-2">
-                    <input type="number" value={p.value} onChange={e=>{
-                      const v=parseFloat(e.target.value)||0;
-                      setParams(prev=>prev.map(x=>x.key===p.key?{...x,value:v}:x));
-                      setCustomParams(prev=>prev.map(x=>x.name===p.key?{...x,value:v}:x));
-                    }} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold text-lg" step="0.1"/>
-                    <span className="text-xs text-gray-500 w-14">{p.unit}</span>
+            <button onClick={runSim} disabled={loading}
+              className="mt-5 w-full py-5 rounded-2xl font-black text-lg transition-all hover:scale-105 disabled:opacity-50"
+              style={{background: loading ? '#374151' : 'linear-gradient(135deg,#06b6d4,#a855f7)'}}>
+              {loading ? '⏳ Simulando gemelo digital...' : '▶ Ejecutar Gemelo Digital'}
+            </button>
+          </div>
+        </div>
+
+        {/* Orchestrator Panel */}
+        <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
+          <h2 className="text-lg font-black text-white mb-5">🎛️ Panel del Orquestador — Biosíntesis</h2>
+          {bioAge > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-3 text-center">
+                {[
+                  [bioAge.toFixed(1), 'Edad Biológica', 'text-cyan-400'],
+                  [pace.toFixed(3), 'DunedinPACE', paceColor],
+                  [String(nAgents), 'Agentes Activos', 'text-emerald-400'],
+                  [String(nSignals), 'Señales Emitidas', 'text-yellow-400'],
+                ].map(([v,l,c],i) => (
+                  <div key={i} className="bg-gray-800 rounded-xl p-4">
+                    <div className={`text-3xl font-black ${c}`}>{v}</div>
+                    <div className="text-xs text-gray-400 mt-1">{l}</div>
                   </div>
+                ))}
+              </div>
+              {result?.ensemble_summary?.trajectory && (
+                <div className="bg-cyan-950/30 border border-cyan-800/30 rounded-xl p-4">
+                  <div className="text-cyan-400 text-xs font-bold mb-2">📊 Interpretación del Orquestador</div>
+                  <div className="text-gray-200 text-sm leading-relaxed">{result.ensemble_summary.trajectory}</div>
                 </div>
+              )}
+              {result?.orchestrator_summary && (
+                <div className="bg-gray-800 rounded-xl p-4">
+                  <div className="text-gray-400 text-xs font-bold mb-2">📋 Resumen clínico</div>
+                  <div className="text-gray-300 text-sm">{result.orchestrator_summary}</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-10 text-gray-500">
+              <div className="text-5xl mb-3">🐟</div>
+              <div className="text-lg font-bold">Gemelo digital listo</div>
+              <div className="text-sm mt-1">Pulsa "Ejecutar Gemelo Digital" para iniciar la simulación</div>
+            </div>
+          )}
+        </div>
+
+        {/* Signals */}
+        {nSignals > 0 && (
+          <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
+            <h2 className="text-lg font-black text-white mb-4">🔄 Señales Inter-Agentes</h2>
+            <div className="space-y-2">
+              {result!.signals_emitted!.map((s,i) => {
+                const pc: Record<string,string> = {HIGH:'#ef4444',CRITICAL:'#dc2626',NORMAL:'#f59e0b',LOW:'#6b7280',info:'#6b7280',warning:'#f59e0b',critical:'#ef4444'};
+                return (
+                  <div key={i} className="flex items-center gap-3 bg-gray-800 rounded-xl p-3">
+                    <span className="font-black text-xs w-16 shrink-0" style={{color: pc[s.priority] ?? '#6b7280'}}>{s.priority}</span>
+                    <span className="text-cyan-300 w-48 shrink-0 font-medium text-sm">{s.name}</span>
+                    {s.emitted_by && <span className="text-gray-500 w-40 shrink-0 text-xs">de: {s.emitted_by}</span>}
+                    <span className="text-gray-400 flex-1 text-xs">{s.reasoning?.slice(0,100)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Agents Grid */}
+        {nAgents > 0 && (
+          <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
+            <h2 className="text-lg font-black text-white mb-4">🧠 {nAgents} Agentes Biológicos — Análisis Clínico</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {result!.agent_outputs!.map((out,i) => (
+                <AgentCard key={i} out={out} exp={expanded.has(out.agent_id)} onToggle={()=>toggle(out.agent_id)} onChat={()=>setChatAgent(out)}/>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── TAB: SIMULATION ── */}
-        {tab==='simulation' && (
-          <div>
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              {/* INTERVENTIONS */}
-              <div className="col-span-2 bg-gray-900 rounded-2xl p-5 border border-gray-800">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-black">Intervenciones</h2>
-                  <button onClick={()=>setShowAddInt(true)} className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold">
-                    ➕ Añadir
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {allInts.map((int,i) => (
-                    <button key={`${int.id}-${i}`} onClick={()=>setSelectedInt(int.id)}
-                      className={`p-3 rounded-xl border text-left transition-all ${selectedInt===int.id?'border-white scale-105':'border-gray-700 bg-gray-800 hover:border-gray-500'}`}
-                      style={{backgroundColor: selectedInt===int.id ? `${int.color}22`:undefined}}>
-                      <div className="text-xl mb-1">{int.icon}</div>
-                      <div className="font-semibold text-white text-xs leading-tight">{int.name}</div>
-                    </button>
-                  ))}
+        {/* Biomarkers panel */}
+        <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
+          <h2 className="text-lg font-black text-white mb-4">📊 Biomarcadores del Paciente: <span className="text-cyan-400">{profileName}</span></h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
+            {params.map(p => (
+              <div key={p.k} className="bg-gray-800 rounded-xl p-3">
+                <div className="text-gray-400 text-xs mb-1.5">{p.l}</div>
+                <div className="flex items-center gap-1.5">
+                  <input type="number" value={p.v} onChange={e=>setParams(prev=>prev.map(x=>x.k===p.k?{...x,v:Number(e.target.value)}:x))} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-white font-bold text-sm text-center" step="0.1"/>
+                  <span className="text-gray-500 text-xs w-10 shrink-0">{p.u}</span>
                 </div>
               </div>
-
-              {/* PARAMS */}
-              <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800 flex flex-col justify-between">
-                <div>
-                  <h2 className="text-lg font-black mb-4">Parámetros</h2>
-                  <div className="mb-4">
-                    <label className="text-sm text-gray-400 mb-2 block">Meses: <strong className="text-white">{months}</strong></label>
-                    <input type="range" min="1" max="60" value={months} onChange={e=>setMonths(parseInt(e.target.value))} className="w-full" style={{accentColor:'#22d3ee'}}/>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    <div className="bg-gray-800 rounded-lg p-2 text-center"><div className="text-xl font-black text-cyan-400">{bioAge.toFixed(1)}</div><div className="text-xs text-gray-400">Edad Bio</div></div>
-                    <div className="bg-gray-800 rounded-lg p-2 text-center"><div className="text-xl font-black" style={{color:paceColor}}>{pace.toFixed(3)}</div><div className="text-xs text-gray-400">PACE</div></div>
-                  </div>
-                </div>
-                <button onClick={runSimulation} disabled={loading}
-                  className="w-full py-4 rounded-xl font-black text-lg transition-all hover:scale-105 disabled:opacity-50"
-                  style={{background:'linear-gradient(135deg,#06b6d4,#a855f7)'}}>
-                  {loading ? '⏳ Simulando...':'▶ Ejecutar Gemelo Digital'}
-                </button>
-              </div>
-            </div>
-
-            {/* RESULTS */}
-            {result && (
-              <>
-                <OrchestratorPanel r={result} />
-                <div className="mt-4"><SignalFlow signals={result.signals_emitted}/></div>
-                <div className="mt-4">
-                  <h2 className="text-lg font-black mb-3">🧠 18 Agentes Biológicos — Análisis Clínico</h2>
-                  <div className="grid grid-cols-3 gap-3">
-                    {result.agent_outputs.map((out,i) => (
-                      <AgentCard key={i} out={out} expanded={expanded.has(out.agent_id)} onToggle={()=>toggleAgent(out.agent_id)} onChat={()=>openChat(out)}/>
-                    ))}
-                  </div>
-                  {result.agent_outputs.length===0 && (
-                    <div className="text-center py-10 text-gray-500">Sin datos de agentes — conecta con el backend en puerto 8000</div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {!result&&!loading&&(
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">🐟</div>
-                <div className="text-xl font-bold text-gray-300">Gemelo digital listo</div>
-                <div className="text-sm text-gray-500 mt-2">Selecciona intervención y haz clic en "Ejecutar"</div>
-              </div>
-            )}
+            ))}
           </div>
-        )}
-
-        {/* ── TAB: MEMORY ── */}
-        {tab==='memory'&&(
-          <div className="text-center py-16">
-            <div className="text-6xl mb-4">🧠</div>
-            <div className="text-2xl font-black mb-2">Memoria Persistente</div>
-            <div className="text-gray-500 max-w-lg mx-auto">Los resultados se guardan en SQLite. Despliega el backend para activar la memoria.</div>
-            <div className="mt-6 grid grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
-              <div className="bg-gray-900 rounded-xl p-4 border border-gray-800"><div className="text-2xl mb-2">📊</div><div className="text-sm font-bold text-white">Historial de Sesiones</div><div className="text-xs text-gray-400 mt-1">Cada simulación se guarda con su sesión</div></div>
-              <div className="bg-gray-900 rounded-xl p-4 border border-gray-800"><div className="text-2xl mb-2">🔗</div><div className="text-sm font-bold text-white">Trazabilidad de Agentes</div><div className="text-xs text-gray-400 mt-1">Cada agente registra reasoning y acciones</div></div>
-              <div className="bg-gray-900 rounded-xl p-4 border border-gray-800"><div className="text-2xl mb-2">🧬</div><div className="text-sm font-bold text-white">Trail de Señales</div><div className="text-xs text-gray-400 mt-1">Las señales entre órganos quedan registradas</div></div>
-            </div>
+          <div className="mt-4 text-xs text-gray-500">
+            💡 Los cambios en biomarcadores se aplican automáticamente en la siguiente simulación
           </div>
-        )}
+        </div>
       </div>
 
-      {chatAgent && <ChatModal agent={chatAgent} onClose={()=>setChatAgent(null)} onSend={sendChat}/>}
-      {showAddParam && <AddParamModal onAdd={addParam} onClose={()=>setShowAddParam(false)}/>}
-      {showAddInt && <AddInterventionModal onAdd={addInt} onClose={()=>setShowAddInt(false)}/>}
+      {chatAgent && <ChatModal agent={chatAgent} onClose={()=>setChatAgent(null)}/>}
     </div>
   );
 }
