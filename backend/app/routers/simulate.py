@@ -51,7 +51,7 @@ async def run_simulation(req: SimulateRunRequest):
 
         if req.intervention_id not in ["none"]:
             from src.interventions import intervention_engine
-            known = [i.id for i in intervention_engine.INTERVENTIONS]
+            known = list(intervention_engine.INTERVENTIONS.keys())
             if req.intervention_id not in known:
                 conn = get_conn()
                 row = conn.execute(
