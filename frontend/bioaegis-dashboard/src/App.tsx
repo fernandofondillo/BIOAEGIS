@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { AgentOutput, SimResult, CustomParam, CustomInt } from './types';
 
 const API = 'http://localhost:8000';
 
@@ -53,24 +54,33 @@ interface SimResult {
 }
 
 // Sub-components
-function AgentCard({ out, expanded, onToggle }: { out: AgentOut; expanded: boolean; onToggle: () => void }) {
+function AgentCard({ out, expanded, onToggle, onChat }: { out: AgentOutput; expanded: boolean; onToggle: () => void; onChat: () => void }) {
   const icon = AGENT_ICONS[out.agent_id] ?? AGENT_ICONS.default;
   const conf = out.confidence > 0.8 ? '#22c55e' : out.confidence > 0.6 ? '#f59e0b' : '#6b7280';
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 cursor-pointer hover:border-cyan-500 transition-all" onClick={onToggle}>
-      <div className="flex items-center gap-2 mb-2">
+    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 cursor-pointer hover:border-cyan-500 transition-all">
+      <div className="flex items-center gap-2 mb-2" onClick={onToggle}>
         <span className="text-2xl">{icon}</span>
-        <span className="text-white font-semibold text-sm capitalize">{out.agent_id.replace(/_/g, ' ')}</span>
-        <div className="ml-auto"><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: conf+'33', color: conf }}>{Math.round(out.confidence*100)}%</span></div>
+        <span className="text-white font-semibold text-sm capitalize flex-1">{out.agent_id.replace(/_/g, ' ')}</span>
+        <div><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: conf+'33', color: conf }}>{Math.round(out.confidence*100)}%</span></div>
       </div>
-      <p className="text-gray-300 text-xs line-clamp-2">{out.assessment}</p>
+      <p className="text-gray-300 text-xs line-clamp-2 mb-2">{out.assessment}</p>
       {expanded && (
-        <div className="mt-3 space-y-2">
+        <div className="space-y-2">
+          {out.reasoning && (
+            <div className="text-xs bg-cyan-900/20 border border-cyan-600/30 text-cyan-300 rounded-lg p-2">
+              <span className="font-bold text-cyan-400">💡 Razonamiento:</span> {out.reasoning}
+            </div>
+          )}
           {out.concerns.slice(0,2).map((c,i) => <div key={i} className="text-xs bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-2">⚠️ {c}</div>)}
           {out.recommended_actions.slice(0,2).map((a,i) => <div key={i} className="text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg p-2">✅ {a}</div>)}
           {out.signals_emitted?.length > 0 && <div className="flex flex-wrap gap-1 mt-2">
-            {out.signals_emitted.map((s,i) => <span key={i} className="text-xs bg-cyan-900/40 text-cyan-300 border border-cyan-700 rounded px-1.5 py-0.5">{s.name}</span>)}
+            {out.signals_emitted.map((s,i) => <span key={i} className="text-xs bg-cyan-900/40 text-cyan-300 border border-cyan-700 rounded px-1.5 py-0.5">{s}</span>)}
           </div>}
+          <button onClick={(e) => { e.stopPropagation(); onChat(); }}
+            className="w-full mt-2 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all">
+            💬 Dialogar con {out.agent_id.replace(/_/g,' ')}
+          </button>
         </div>
       )}
     </div>
@@ -79,8 +89,8 @@ function AgentCard({ out, expanded, onToggle }: { out: AgentOut; expanded: boole
 
 function SignalFlow({ signals }: { signals: SimResult['signals_emitted'] }) {
   if (!signals?.length) return <div className="text-gray-500 text-sm text-center py-6">Sin señales emitidas en esta simulación</div>;
-  const pc: Record<string,string> = { HIGH: '#ef4444', CRITICAL: '#dc2626', NORMAL: '#f59e0b', LOW: '#6b7280' };
-  const organs = [' Cardiovascular',' Metabólico',' Inflamación',' Molecular',' Sueño',' Rendimiento'];
+  const pc: Record<string,string> = { HIGH: '#ef4444', CRITICAL: '#dc2626', NORMAL: '#f59e0b', LOW: '#6b7280', info: '#6b7280', warning: '#f59e0b', critical: '#ef4444' };
+  const organs = ['Cardiovascular','Metabólico','Inflamación','Molecular','Sueño','Rendimiento'];
   const icons = ['❤️','🩸','🔥','🧬','😴','💪'];
   return (
     <div className="bg-gray-900 rounded-xl p-5 border border-gray-700">
@@ -97,8 +107,8 @@ function SignalFlow({ signals }: { signals: SimResult['signals_emitted'] }) {
       </div>
       <div className="grid grid-cols-3 gap-2">
         {organs.map((org,i) => {
-          const em = signals.filter(s => s.emitted_by?.includes(org.trim()));
-          const rc = signals.filter(s => s.name.includes(org.trim()));
+          const em = signals.filter(s => s.emitted_by?.includes(org));
+          const rc = signals.filter(s => s.name.includes(org));
           return (
             <div key={i} className="bg-gray-800 rounded-lg p-3 text-center">
               <div className="text-2xl mb-1">{icons[i]}</div>
@@ -207,7 +217,7 @@ export default function App() {
   const [tab, setTab] = useState<'biomarkers'|'simulation'|'memory'>('biomarkers');
   const [params, setParams] = useState(BUILTIN_PARAMS);
   const [customParams, setCustomParams] = useState<CustomParam[]>([]);
-  const [interventions, _setInterventions] = useState(BUILTIN_INTERVENTIONS);
+  const [interventions] = useState(BUILTIN_INTERVENTIONS);
   const [customInts, setCustomInts] = useState<CustomInt[]>([]);
   const [selectedInt, setSelectedInt] = useState('none');
   const [months, setMonths] = useState(6);
@@ -218,6 +228,8 @@ export default function App() {
   const [showAddInt, setShowAddInt] = useState(false);
   const [age, setAge] = useState(40);
   const [sex, setSex] = useState<'male'|'female'>('male');
+  const [chatAgent, setChatAgent] = useState<AgentOutput|null>(null);
+  const [chatMsg, setChatMsg] = useState('');
 
   const buildUserData = useCallback(() => {
     const ud: Record<string,string|number> = { chronological_age: age, sex };
@@ -248,6 +260,20 @@ export default function App() {
     setCustomParams(prev => [...prev, { id: Date.now(), ...p }]);
 
   const addInt = (i: CustomInt) => setCustomInts(prev => [...prev, i]);
+
+  const openChat = (agent: AgentOutput) => { setChatAgent(agent); setChatMsg(''); };
+  const sendChat = async () => {
+    if (!chatAgent || !chatMsg.trim()) return;
+    try {
+      const res = await fetch(`${API}/api/v1/simulate/chat`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: chatAgent.agent_id, message: chatMsg, user_data: buildUserData() }),
+      });
+      const data = await res.json();
+      setChatAgent(prev => prev ? { ...prev, reasoning: (prev.reasoning || '') + '\n\n---\n👤 ' + chatMsg + '\n\n💡 ' + (data.response || data.message || 'Respuesta del agente') } : prev);
+    } catch { setChatAgent(prev => prev ? { ...prev, reasoning: (prev.reasoning || '') + '\n\n---\n❌ Error: Backend no disponible' } : prev); }
+    setChatMsg('');
+  };
 
   const allParams = [...params, ...customParams.map(p => ({ key: p.name, label: p.label, value: p.value, unit: p.unit }))];
   const allInts = [...interventions, ...customInts];
