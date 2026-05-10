@@ -110,7 +110,8 @@ function SignalFlow({ signals }: { signals: SimResult['signals_emitted'] }) {
 }
 
 function OrchestratorPanel({ r }: { r: SimResult }) {
-  const pc = r.ensemble_pace > 1.2 ? '#ef4444' : r.ensemble_pace > 1.0 ? '#f59e0b' : '#22c55e';
+  const pace = r.ensemble_pace ?? r.ensemble_summary?.ensemble_pace ?? 1.0;
+  const pc = pace > 1.2 ? '#ef4444' : pace > 1.0 ? '#f59e0b' : '#22c55e';
   return (
     <div className="bg-gray-900 rounded-xl p-5 border border-gray-700">
       <h3 className="text-white font-bold text-sm mb-4">🎛️ Panel del Orquestador — Biosíntesis</h3>

@@ -68,7 +68,7 @@ async def run_simulation(req: SimulateRunRequest):
             'glucose': 'glucose_fasting', 'hba1c': 'hba1c', 'homa_ir': 'c_peptide',
             'crp': 'c_reactive_protein', 'systolic_bp': 'systolic_bp',
             'vo2max': 'vo2max', 'hrv_sdnn': 'hrv_sdnn', 'waist': 'perimeter_waist',
-            'bmi': 'bmi', 'nadi_level': 'nampk_activity', 'vitamin_d': 'vitamin_d',
+            'bmi': 'bmi', 'nadi_level': 'nad_level', 'vitamin_d': 'vitamin_d',
             'sleep_hours': 'sleep_hours', 'exercise_minutes': 'exercise_minutes',
             'alcohol': 'alcohol_units', 'smoker': 'smoker',
             'ast': 'ast', 'alt': 'alt', 'bun': 'bun', 'creatinine': 'creatinine',
