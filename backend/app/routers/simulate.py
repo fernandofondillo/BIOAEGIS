@@ -62,7 +62,50 @@ async def run_simulation(req: SimulateRunRequest):
                 if row:
                     intervention_engine.add_custom_intervention(dict(row))
 
-        orchestrator.initialize_user(req.user_data)
+        # Mapear keys del frontend → keys del motor biológico
+        KEY_MAP = {
+            'ldl': 'ldl_cholesterol', 'hdl': 'hdl_cholesterol', 'tg': 'triglycerides',
+            'glucose': 'glucose_fasting', 'hba1c': 'hba1c', 'homa_ir': 'c_peptide',
+            'crp': 'c_reactive_protein', 'systolic_bp': 'systolic_bp',
+            'vo2max': 'vo2max', 'hrv_sdnn': 'hrv_sdnn', 'waist': 'perimeter_waist',
+            'bmi': 'bmi', 'nadi_level': 'nampk_activity', 'vitamin_d': 'vitamin_d',
+            'sleep_hours': 'sleep_hours', 'exercise_minutes': 'exercise_minutes',
+            'alcohol': 'alcohol_units', 'smoker': 'smoker',
+            'ast': 'ast', 'alt': 'alt', 'bun': 'bun', 'creatinine': 'creatinine',
+            'tsh': 'tsh', 'cortisol': 'cortisol', 'Hb': 'hemoglobin',
+            '肌력': 'grip_strength', 'fasting_insulin': 'fasting_insulin',
+            'uric_acid': 'uric_acid', 'body_fat_pct': 'body_fat_pct',
+        }
+        mapped_data = {}
+        for k, v in req.user_data.items():
+            mapped_key = KEY_MAP.get(k, k)
+            mapped_data[mapped_key] = v
+
+        # Rellenar todos los biomarkers posibles con valores seguros
+        ALL_BIOMARKERS = [
+            'ldl_cholesterol','hdl_cholesterol','triglycerides','glucose_fasting','hba1c',
+            'c_peptide','c_reactive_protein','systolic_bp','vo2max','hrv_sdnn','perimeter_waist',
+            'bmi','ampk_activity','mtor_activity','sirt1_activity','nad_level','vitamin_d',
+            'sleep_hours','exercise_minutes','alcohol_units','smoker','mediterranean_score',
+            'stress','hemoglobin','ast','alt','bun','creatinine','tsh','cortisol','fsh','dhea_s',
+            'grip_strength','fasting_insulin','uric_acid','body_fat_pct','adiponectin','leptin',
+            'lymphocytes_pct','iga','igg','iron','albumin','sodium','egfr','homocysteine',
+            'protein_intake_grams','skeletal_muscle_mass','lactate_threshold','hr_resting',
+            'time_in_bed','sleep_efficiency','cortisol_wake_up','ketones_blood',
+            'respiratory_quotient','fat_oxidation_rate','glutation','superoxide_dismutasa',
+            'vitamin_e','telomere_length','epigenetic_age','waist_cm','arm_muscle',
+            'alanine_aminotransferasa',
+        ]
+        for b in ALL_BIOMARKERS:
+            if b not in mapped_data:
+                if b == 'sex':
+                    mapped_data['sex'] = req.user_data.get('sex', 'male')
+                elif b in ('smoker',):
+                    mapped_data[b] = False
+                else:
+                    mapped_data[b] = 50.0
+
+        orchestrator.initialize_user(mapped_data)
         results = []
         for tick in range(1, req.months + 1):
             r = orchestrator.run_tick(tick=tick, intervention=req.intervention_id)
