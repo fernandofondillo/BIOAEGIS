@@ -241,7 +241,6 @@ export default function App() {
         user_data: buildUd() as Record<string,number>,
         ensemble_summary: {
           ensemble_biological_age: 50.7, ensemble_pace: 1.177,
-          ensemble_biological_age: 50.7, ensemble_pace: 1.177,
           age_acceleration_years: 5.7, top_risks: [], top_signals: [],
           trajectory: DEMO_TRAJECTORY, confidence: 0.87,
         },
