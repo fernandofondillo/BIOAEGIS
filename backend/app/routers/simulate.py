@@ -135,14 +135,16 @@ async def run_simulation(req: SimulateRunRequest):
         final = all_results[-1]
         ens = final.ensemble_summary or {}
 
-        # Calculate real clock values
+        # ── Biological clocks (classes, not functions) ───────────────────────
         try:
-            pheno_age = calculate_phenotype_age(ud)
-        except:
-            pheno_age = ens.get("ensemble_biological_age", 45)
-        try:
-            dunedin_pace = calculate_dunedin_pace(ud)
-        except:
+            from src.biological_clocks import PhenoAgeClock, DunedinPACEClock
+            pheno_clock = PhenoAgeClock()
+            dunedin_clock = DunedinPACEClock()
+            pheno_age = pheno_clock.calculate_age(ud)
+            dunedin_pace = dunedin_clock.calculate_pace(ud)
+        except Exception as e:
+            print(f"[Clock] fallback: {e}")
+            pheno_age = ens.get("ensemble_biological_age", 45.0)
             dunedin_pace = ens.get("ensemble_pace", 1.0)
 
         bio_age = ens.get("ensemble_biological_age", float(pheno_age))
