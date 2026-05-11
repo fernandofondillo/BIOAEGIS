@@ -238,8 +238,9 @@ export default function App() {
     } catch {
       setResult({
         simulation_id: 999, tick: months, biological_age: 50.7, ensemble_pace: 1.177, confidence: 0.87,
-        user_data: buildUd(),
+        user_data: buildUd() as Record<string,number>,
         ensemble_summary: {
+          ensemble_biological_age: 50.7, ensemble_pace: 1.177,
           ensemble_biological_age: 50.7, ensemble_pace: 1.177,
           age_acceleration_years: 5.7, top_risks: [], top_signals: [],
           trajectory: DEMO_TRAJECTORY, confidence: 0.87,
